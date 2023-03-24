@@ -10,6 +10,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// pq is pure golang postgres driver for database/sql package
+
 var testQueries *Queries
 var testDB *sql.DB
 

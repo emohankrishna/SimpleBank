@@ -3,14 +3,25 @@
 
 // Creating tables
 // You can define the tables with full schema names
+Table users as U {
+  username varchar [pk]
+  hashed_password varchar [not null]
+  full_name varchar [not null]
+  email varchar [not null, unique]
+  password_changed_at timestamptz [not null, default: '0001-01-01 00:00:00Z']
+  created_at timestamptz [not null, default: `now()`]
+
+}
+
 Table accounts as A {
   id bigserial [pk]
-  owner varchar [not null]
+  owner varchar [ ref: > U.username , not null]
   balance bigserial [not null]
   currency varchar [not null]
   created_at timestamptz [not null, default:`now()`]
   Indexes {
     owner
+    (owner, currency)[unique]
   }
 }
 

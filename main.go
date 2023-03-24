@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"log"
-	"testing"
 
 	"github.com/emohankrishna/Simplebank/api"
 	db "github.com/emohankrishna/Simplebank/db/sqlc"
@@ -16,10 +15,6 @@ import (
 // 	dbSource      = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
 // 	serverAddress = "0.0.0.0:8080"
 // )
-
-func TestMain(m *testing.M) {
-
-}
 
 func main() {
 	config, err := util.LoadConfig(".")
