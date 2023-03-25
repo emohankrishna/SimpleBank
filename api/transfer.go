@@ -1,16 +1,18 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	db "github.com/emohankrishna/Simplebank/db/sqlc"
+	"github.com/emohankrishna/Simplebank/token"
 	"github.com/gin-gonic/gin"
 )
 
 type transferRequest struct {
 	FromAccountID int64  `json:"from_account_id" binding:"required,min=1"`
 	ToAccountID   int64  `json:"to_account_id" binding:"required,min=1"`
-	Amount        int64  `json:"amount" binding:"required,gt>0"`
+	Amount        int64  `json:"amount" binding:"required,gt=0"`
 	Currency      string `json:"currency" binding:"required,currency"`
 }
 
@@ -21,10 +23,18 @@ func (server *Server) CreateTransfer(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-	if !server.validateAccount(ctx, req.FromAccountID, req.Currency) {
+	fromAccount, valid := server.validateAccount(ctx, req.FromAccountID, req.Currency)
+	if !valid {
 		return
 	}
-	if !server.validateAccount(ctx, req.ToAccountID, req.Currency) {
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if fromAccount.Owner != authPayload.Username {
+		err := errors.New("from account doesn't belongs to authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+	_, valid = server.validateAccount(ctx, req.ToAccountID, req.Currency)
+	if !valid {
 		return
 	}
 	arg := db.TransferTxParams{

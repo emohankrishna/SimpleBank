@@ -2,16 +2,17 @@ package api
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
 	db "github.com/emohankrishna/Simplebank/db/sqlc"
+	"github.com/emohankrishna/Simplebank/token"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 )
 
 type createAccountRequest struct {
-	Owner    string `json:"owner" binding:"required"`
 	Currency string `json:"currency" binding:"required,oneof=USD EUR INR"`
 }
 
@@ -22,8 +23,9 @@ func (server *Server) CreateAccount(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 	arg := db.CreateAccountParams{
-		Owner:    req.Owner,
+		Owner:    authPayload.Username,
 		Currency: req.Currency,
 		Balance:  0,
 	}
@@ -64,6 +66,12 @@ func (server *Server) GetAccount(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if authPayload.Username != account.Owner {
+		err := errors.New("account doesn't belongs to the authenticated user")
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
 	ctx.JSON(http.StatusOK, account)
 }
 
@@ -80,7 +88,9 @@ func (server *Server) ListAccounts(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
+	authPayload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
 	arg := db.ListAccountsParams{
+		Owner:  authPayload.Username,
 		Limit:  int32(req.PageSize),
 		Offset: int32((req.PageID - 1) * req.PageSize),
 	}
@@ -94,4 +104,22 @@ func (server *Server) ListAccounts(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, accounts)
+}
+
+func (server *Server) validateAccount(ctx *gin.Context, accountID int64, currency string) (db.Account, bool) {
+	account, err := server.store.GetAccount(ctx, accountID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			ctx.JSON(http.StatusNotFound, errorResponse(err))
+			return account, false
+		}
+		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
+		return account, false
+	}
+	if account.Currency != currency {
+		err := fmt.Errorf("account %d currency mismatch: %s vs %s", accountID, account.Currency, currency)
+		ctx.JSON(http.StatusBadRequest, errorResponse(err))
+		return account, false
+	}
+	return account, true
 }

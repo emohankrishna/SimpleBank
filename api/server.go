@@ -1,9 +1,7 @@
 package api
 
 import (
-	"database/sql"
 	"fmt"
-	"net/http"
 
 	db "github.com/emohankrishna/Simplebank/db/sqlc"
 	"github.com/emohankrishna/Simplebank/db/util"
@@ -43,14 +41,15 @@ func NewServer(config util.Config, store db.Store) (*Server, error) {
 
 func (server *Server) setupRouter() {
 	router := gin.Default()
-	router.POST("/accounts", server.CreateAccount)
-	router.GET("/accounts/:id", server.GetAccount)
-	router.GET("/accounts/", server.ListAccounts)
-
-	router.POST("/transfer", server.CreateTransfer)
 
 	router.POST("/users", server.CreateUser)
 	router.POST("/users/login", server.loginUser)
+	authRoutes := router.Group("/").Use(authMiddleware(server.tokenMaker))
+	authRoutes.POST("/accounts", server.CreateAccount)
+	authRoutes.GET("/accounts/:id", server.GetAccount)
+	authRoutes.GET("/accounts", server.ListAccounts)
+	authRoutes.POST("/transfers", server.CreateTransfer)
+
 	server.router = router
 }
 
@@ -61,21 +60,4 @@ func (server *Server) Start(address string) error {
 
 func errorResponse(err error) gin.H {
 	return gin.H{"error": err.Error()}
-}
-
-func (server *Server) validateAccount(ctx *gin.Context, accountID int64, currency string) bool {
-	account, err := server.store.GetAccount(ctx, accountID)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, errorResponse(err))
-		}
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
-	}
-	if account.Currency != currency {
-		err := fmt.Errorf("account %d currency mismatch: %s vs %s", accountID, account.Currency, currency)
-		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
-	}
-	return true
 }
