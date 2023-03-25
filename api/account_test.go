@@ -81,7 +81,7 @@ func TestGetAccountAPI(t *testing.T) {
 			// store.EXPECT().GetAccount(gomock.Any(), gomock.Eq(account.ID)).Times(1).Return(account, nil)
 			// start test server and send request
 
-			server := NewServer(store)
+			server := NewTestServer(t, store)
 			recorder := httptest.NewRecorder()
 			url := fmt.Sprintf("/accounts/%d", tc.accountID)
 			request, err := http.NewRequest(http.MethodGet, url, nil)
@@ -95,6 +95,11 @@ func TestGetAccountAPI(t *testing.T) {
 	// require.Equal(t, http.StatusOK, recorder.Code)
 	// requireBodyMatchAccount(t, recorder.Body, account)
 }
+
+// TODO: TestCreateAccountAPI
+
+// TODO: TestGetAccountAPI
+
 func randomAccount() db.Account {
 	return db.Account{
 		ID:       util.RandomInt(1, 1000),
